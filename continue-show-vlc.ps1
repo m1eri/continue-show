@@ -142,6 +142,44 @@ function writeHistoryTxt
 	echo "$vidDir`t$fileName`t$time" >> $hstFile
 }
 
+function getUpcomingVideos($refFile)
+{
+	# Get movie files
+	$movies = gci -Path $vidDir -Include $validFileTypes -Recurse | where {! $_.PSIsContainer}
+
+	$files = @()
+
+	$found = $false
+
+	foreach ($movie in $movies)
+	{
+		if ($found)
+		{
+			$files += $vidDir + "\" + $movie.Name
+		}
+		
+		if ($movie.Name -eq $refFile)
+		{
+			$found = $true
+		}
+	}
+	
+	return $files
+}
+
+function addParenthesesToArray($array)
+{
+	$ret = @()
+	
+	foreach ($file in $array)
+	{
+		$ret += "--start-time=0"
+		$ret += "`"$file`""
+	}
+	
+	return $ret
+}
+
 $res = getFileToPlay_vlc
 
 if (!$res.success)
@@ -156,7 +194,13 @@ if (!$res.success)
 $filePath = $vidDir + "\" + $res.name
 $time     = $res.time + ".0"
 
-$params = "--start-time=$time", "`"$filePath`"", "--fullscreen"
+$params = "--fullscreen", "`"$filePath`"", "--one-instance", ":start-time=$time" # : Only applies to precding files
+
+& $vlcPath $params
+
+# Add upcoming episodes
+$params = "--started-from-file", "--playlist-enqueue"
+$params += addParenthesesToArray(getUpcomingVideos($res.name))
 
 & $vlcPath $params
 
